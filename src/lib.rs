@@ -11,6 +11,9 @@ pub mod metrics;
 
 /// An encoder encodes metrics into bytes.
 pub trait Encoder {
+    fn write_desc(&mut self, desc: &MetricDesc<Self>)
+    where
+        Self: Sized;
     fn write(&mut self, bytes: &[u8]);
 }
 
@@ -24,14 +27,34 @@ pub trait Metric<E: Encoder> {
     fn encode(&self, enc: E) -> E;
 }
 
-pub struct MetricItem<'a, E: Encoder> {
-    metric: &'a dyn Metric<E>,
-    next: AtomicPtr<MetricItem<'a, E>>,
+/// Enumerates the types of metrics as per OpenMetrics and what we
+/// support
+pub enum MetricType {
+    Counter,
 }
 
-impl<'a, E: Encoder> MetricItem<'a, E> {
-    pub const fn new(metric: &'a dyn Metric<E>) -> Self {
+/// A metric descriptor exists for the purposes of registering a metric,
+/// along with its meta data.
+pub struct MetricDesc<'a, E: Encoder> {
+    pub name: &'a str,
+    pub help: &'a str,
+    pub unit: Option<&'a str>,
+
+    metric: &'a dyn Metric<E>,
+    next: AtomicPtr<MetricDesc<'a, E>>,
+}
+
+impl<'a, E: Encoder> MetricDesc<'a, E> {
+    pub const fn new(
+        name: &'a str,
+        help: &'a str,
+        unit: Option<&'a str>,
+        metric: &'a dyn Metric<E>,
+    ) -> Self {
         Self {
+            name,
+            help,
+            unit,
             metric,
             next: AtomicPtr::new(ptr::null_mut()),
         }
@@ -43,7 +66,7 @@ impl<'a, E: Encoder> MetricItem<'a, E> {
 /// that must live at least as long as the registry
 /// itself.
 pub struct Registry<'a, E: Encoder> {
-    head: AtomicPtr<MetricItem<'a, E>>,
+    head: AtomicPtr<MetricDesc<'a, E>>,
 }
 
 impl<'a, E: Encoder> Registry<'a, E> {
@@ -53,7 +76,7 @@ impl<'a, E: Encoder> Registry<'a, E> {
         }
     }
 
-    pub fn register(&self, item: NonNull<MetricItem<'a, E>>) {
+    pub fn register(&self, item: NonNull<MetricDesc<'a, E>>) {
         let prev = self.head.load(Ordering::Relaxed);
         unsafe { item.as_ref().next.store(prev, Ordering::Relaxed) };
         self.head.store(item.as_ptr(), Ordering::Relaxed);
@@ -66,6 +89,7 @@ impl<'a, E: Encoder> Registry<'a, E> {
         let mut n = &self.head;
         while let Some(i) = NonNull::new(n.load(Ordering::Relaxed)) {
             let item = unsafe { i.as_ref() };
+            enc.write_desc(item);
             enc = item.metric.encode(enc);
             n = &item.next;
         }
@@ -118,19 +142,29 @@ mod tests {
 
         struct MyEncoder;
         impl Encoder for MyEncoder {
+            fn write_desc(&mut self, desc: &MetricDesc<Self>)
+            where
+                Self: Sized,
+            {
+                assert_eq!(desc.name, "some-metric");
+                assert_eq!(desc.help, "Some metric");
+                assert!(desc.unit.is_none());
+            }
+
             fn write(&mut self, bytes: &[u8]) {
                 assert_eq!(bytes, b"1");
             }
         }
 
-        // A registry will typically declared in a static
+        // A registry will be typically declared in a static
         static REGISTRY: Registry<MyEncoder> = Registry::new();
 
         // The user will declare a metric in their file, again as a static
         static METRIC: MyMetric = MyMetric::new();
 
         // The above line and the following can be done as a macro
-        static mut METRIC_ITEM: MetricItem<MyEncoder> = MetricItem::new(&METRIC);
+        static mut METRIC_ITEM: MetricDesc<MyEncoder> =
+            MetricDesc::new("some-metric", "Some metric", None, &METRIC);
         REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
 
         // This'll be what most people will have in the same file as the metric static
