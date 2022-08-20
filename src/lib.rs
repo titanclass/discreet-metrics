@@ -43,6 +43,14 @@ pub struct Registry<'a, E: Encoder> {
 }
 
 impl<'a, E: Encoder> Registry<'a, E> {
+    pub const fn new() -> Self {
+        Self {
+            head: AtomicPtr::new(ptr::null_mut()),
+        }
+    }
+}
+
+impl<'a, E: Encoder> Registry<'a, E> {
     // Collect the registered metrics and encode them
     pub fn encode(&self, mut enc: E) -> E {
         let mut n = &self.head;
@@ -87,6 +95,12 @@ mod tests {
             count: AtomicUsize,
         }
         impl MyMetric {
+            const fn new() -> Self {
+                Self {
+                    count: AtomicUsize::new(0),
+                }
+            }
+
             fn inc(&self) {
                 self.count.fetch_add(1, Ordering::Relaxed);
             }
@@ -106,21 +120,21 @@ mod tests {
         }
 
         // A registry will typically declared in a static
-        let mut registry = Registry::default();
+        static mut REGISTRY: Registry<MyEncoder> = Registry::new();
 
         // The user will declare a metric in their file, again as a static
-        let metric = MyMetric::default();
+        static METRIC: MyMetric = MyMetric::new();
 
         // The above line and the following can be done as a macro
-        let mut metric_item = MetricItem::new(&metric);
-        registry.register(NonNull::new(&mut metric_item as *mut _).unwrap());
+        let mut metric_item = MetricItem::new(&METRIC);
+        unsafe { REGISTRY.register(NonNull::new(&mut metric_item as *mut _).unwrap()) };
 
         // This'll be what most people will have in the same file as the metric static
-        metric.inc();
+        METRIC.inc();
 
         // From elsewhere, we'd be establishing the encoder and outputting
         // its bytes somewhere either periodically or on demand.
         let encoder = MyEncoder;
-        let _encoder = registry.encode(encoder);
+        let _encoder = unsafe { REGISTRY.encode(encoder) };
     }
 }
