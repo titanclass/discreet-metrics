@@ -130,8 +130,8 @@ mod tests {
         static METRIC: MyMetric = MyMetric::new();
 
         // The above line and the following can be done as a macro
-        let mut metric_item = MetricItem::new(&METRIC);
-        REGISTRY.register(NonNull::new(&mut metric_item as *mut _).unwrap());
+        static mut METRIC_ITEM: MetricItem<MyEncoder> = MetricItem::new(&METRIC);
+        REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
 
         // This'll be what most people will have in the same file as the metric static
         METRIC.inc();
