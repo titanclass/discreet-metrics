@@ -80,6 +80,8 @@ mod tests {
 
     #[test]
     fn registration() {
+        // This will be provided by the library
+
         #[derive(Default)]
         struct MyMetric {
             count: AtomicUsize,
@@ -103,17 +105,22 @@ mod tests {
             }
         }
 
-        let encoder = MyEncoder;
-
-        let metric = MyMetric::default();
-        let mut metric_item: MetricItem<'_, MyEncoder> = MetricItem::new(&metric);
-
+        // A registry will typically declared in a static
         let mut registry = Registry::default();
 
+        // The user will declare a metric in their file, again as a static
+        let metric = MyMetric::default();
+
+        // The above line and the following can be done as a macro
+        let mut metric_item = MetricItem::new(&metric);
         registry.register(NonNull::new(&mut metric_item as *mut _).unwrap());
 
+        // This'll be what most people will have in the same file as the metric static
         metric.inc();
 
-        registry.encode(encoder);
+        // From elsewhere, we'd be establishing the encoder and outputting
+        // its bytes somewhere either periodically or on demand.
+        let encoder = MyEncoder;
+        let _encoder = registry.encode(encoder);
     }
 }
