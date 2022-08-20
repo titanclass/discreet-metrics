@@ -1,9 +1,13 @@
+#![doc = include_str!("../README.md")]
 #![cfg_attr(not(test), no_std)]
 
 use core::{
     ptr::{self, NonNull},
     sync::atomic::{AtomicPtr, Ordering},
 };
+
+pub mod encoders;
+pub mod metrics;
 
 /// An encoder encodes metrics into bytes.
 pub trait Encoder {
@@ -48,6 +52,12 @@ impl<'a, E: Encoder> Registry<'a, E> {
             head: AtomicPtr::new(ptr::null_mut()),
         }
     }
+
+    pub fn register(&self, item: NonNull<MetricItem<'a, E>>) {
+        let prev = self.head.load(Ordering::Relaxed);
+        unsafe { item.as_ref().next.store(prev, Ordering::Relaxed) };
+        self.head.store(item.as_ptr(), Ordering::Relaxed);
+    }
 }
 
 impl<'a, E: Encoder> Registry<'a, E> {
@@ -71,13 +81,7 @@ impl<'a, E: Encoder> Default for Registry<'a, E> {
     }
 }
 
-impl<'a, E: Encoder> Registry<'a, E> {
-    pub fn register(&mut self, item: NonNull<MetricItem<'a, E>>) {
-        let prev = self.head.load(Ordering::Relaxed);
-        unsafe { item.as_ref().next.store(prev, Ordering::Relaxed) };
-        self.head.store(item.as_ptr(), Ordering::Relaxed);
-    }
-}
+impl<'a, E: Encoder> Registry<'a, E> {}
 
 #[cfg(test)]
 mod tests {
@@ -120,14 +124,14 @@ mod tests {
         }
 
         // A registry will typically declared in a static
-        static mut REGISTRY: Registry<MyEncoder> = Registry::new();
+        static REGISTRY: Registry<MyEncoder> = Registry::new();
 
         // The user will declare a metric in their file, again as a static
         static METRIC: MyMetric = MyMetric::new();
 
         // The above line and the following can be done as a macro
         let mut metric_item = MetricItem::new(&METRIC);
-        unsafe { REGISTRY.register(NonNull::new(&mut metric_item as *mut _).unwrap()) };
+        REGISTRY.register(NonNull::new(&mut metric_item as *mut _).unwrap());
 
         // This'll be what most people will have in the same file as the metric static
         METRIC.inc();
@@ -135,6 +139,6 @@ mod tests {
         // From elsewhere, we'd be establishing the encoder and outputting
         // its bytes somewhere either periodically or on demand.
         let encoder = MyEncoder;
-        let _encoder = unsafe { REGISTRY.encode(encoder) };
+        let _encoder = REGISTRY.encode(encoder);
     }
 }
