@@ -25,7 +25,7 @@ static METRIC: Counter = Counter::new();
 
 // Register the metric
 static mut METRIC_ITEM: MetricDesc<TextEncoder> =
-    MetricDesc::new("some-metric", "Some metric", None, &METRIC);
+    MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
 REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
 
 // Do what we do with metric counters!

@@ -39,6 +39,7 @@ pub struct MetricDesc<'a, E: Encoder> {
     pub name: &'a str,
     pub help: &'a str,
     pub unit: Option<&'a str>,
+    pub labels: &'a [&'a str],
 
     metric: &'a dyn Metric<E>,
     next: AtomicPtr<MetricDesc<'a, E>>,
@@ -49,12 +50,14 @@ impl<'a, E: Encoder> MetricDesc<'a, E> {
         name: &'a str,
         help: &'a str,
         unit: Option<&'a str>,
+        labels: &'a [&'a str],
         metric: &'a dyn Metric<E>,
     ) -> Self {
         Self {
             name,
             help,
             unit,
+            labels,
             metric,
             next: AtomicPtr::new(ptr::null_mut()),
         }
@@ -149,6 +152,7 @@ mod tests {
                 assert_eq!(desc.name, "some-metric");
                 assert_eq!(desc.help, "Some metric");
                 assert!(desc.unit.is_none());
+                assert_eq!(desc.labels, ["some-label"]);
             }
 
             fn write(&mut self, bytes: &[u8]) {
@@ -164,7 +168,7 @@ mod tests {
 
         // The above line and the following can be done as a macro
         static mut METRIC_ITEM: MetricDesc<MyEncoder> =
-            MetricDesc::new("some-metric", "Some metric", None, &METRIC);
+            MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
         REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
 
         // This'll be what most people will have in the same file as the metric static
