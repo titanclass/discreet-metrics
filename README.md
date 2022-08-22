@@ -16,20 +16,31 @@ An example
 ```rust
 use core::ptr::NonNull;
 use discreet_metrics::{ encoders::text::TextEncoder, metrics::counter::Counter, MetricDesc, Registry };
+use std::sync::Once;
 
 // A registry will be typically declared in a static
 static REGISTRY: Registry = Registry::new();
 
-// Declare a metric in a file where it is used, again as a static
-static METRIC: Counter = Counter::new();
+// Then referenced from within a file where it is required
+// ```
+// extern "Rust" {
+//    static REGISTRY: Registry<'static>;
+//}
 
-// Register the metric
-static mut METRIC_ITEM: MetricDesc =
-    MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
-REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
+// Declare a metric in a file where it is used, again as a static
+static SOME_METRIC: Counter = Counter::new();
+static mut SOME_METRIC_DESC: MetricDesc = 
+    MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &SOME_METRIC);
+
+// Register the metric descriptor - once, and only once! The following is achieved
+// using std::sync::Once.
+static SOME_METRIC_DESC_REG: Once = Once::new();
+SOME_METRIC_DESC_REG.call_once(|| {
+    REGISTRY.register(unsafe { NonNull::new(&mut SOME_METRIC_DESC as *mut _).unwrap() });
+});
 
 // Do what we do with metric counters!
-METRIC.inc();
+SOME_METRIC.inc();
 
 // Elsewhere, establish the encoder and output its bytes somewhere 
 // either periodically or on demand.
