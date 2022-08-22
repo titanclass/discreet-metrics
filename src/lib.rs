@@ -78,22 +78,29 @@ impl<'a> Registry<'a> {
         }
     }
 
-    pub fn register(&self, item: NonNull<MetricDesc<'a>>) {
-        let prev = self.head.load(Ordering::Relaxed);
-        unsafe { item.as_ref().next.store(prev, Ordering::Relaxed) };
-        self.head.store(item.as_ptr(), Ordering::Relaxed);
+    pub fn register(&self, nonnull_desc_ptr: NonNull<MetricDesc<'a>>) {
+        let desc = unsafe { nonnull_desc_ptr.as_ref() };
+        let desc_ptr = nonnull_desc_ptr.as_ptr();
+
+        let head_desc_ptr = self.head.load(Ordering::Relaxed);
+        let prev_desc_ptr = desc.next.swap(head_desc_ptr, Ordering::Relaxed);
+        assert!(
+            head_desc_ptr != desc_ptr && prev_desc_ptr.is_null(),
+            "Metric is loaded more than once"
+        );
+        self.head.store(desc_ptr, Ordering::Relaxed);
     }
 }
 
 impl<'a> Registry<'a> {
     // Collect the registered metrics and encode them
     pub fn encode(&self, enc: &mut dyn Encoder) {
-        let mut n = &self.head;
-        while let Some(i) = NonNull::new(n.load(Ordering::Relaxed)) {
-            let item = unsafe { i.as_ref() };
-            enc.write_desc(item);
-            item.metric.encode(enc);
-            n = &item.next;
+        let mut next = &self.head;
+        while let Some(nonnull_desc_ptr) = NonNull::new(next.load(Ordering::Relaxed)) {
+            let desc = unsafe { nonnull_desc_ptr.as_ref() };
+            enc.write_desc(desc);
+            desc.metric.encode(enc);
+            next = &desc.next;
         }
     }
 }
@@ -157,6 +164,7 @@ mod tests {
         static mut METRIC_ITEM: MetricDesc =
             MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
         REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
+        // REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
 
         // This'll be what most people will have in the same file as the metric static
         METRIC.inc();
