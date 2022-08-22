@@ -18,13 +18,13 @@ use core::ptr::NonNull;
 use discreet_metrics::{ encoders::text::TextEncoder, metrics::counter::Counter, MetricDesc, Registry };
 
 // A registry will be typically declared in a static
-static REGISTRY: Registry<TextEncoder> = Registry::new();
+static REGISTRY: Registry = Registry::new();
 
 // Declare a metric in a file where it is used, again as a static
 static METRIC: Counter = Counter::new();
 
 // Register the metric
-static mut METRIC_ITEM: MetricDesc<TextEncoder> =
+static mut METRIC_ITEM: MetricDesc =
     MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
 REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
 
@@ -33,8 +33,8 @@ METRIC.inc();
 
 // Elsewhere, establish the encoder and output its bytes somewhere 
 // either periodically or on demand.
-let encoder = TextEncoder;
-let _encoder = REGISTRY.encode(encoder);
+let mut encoder = TextEncoder;
+let _encoder = REGISTRY.encode(&mut encoder);
 ```
 
 

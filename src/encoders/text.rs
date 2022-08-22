@@ -5,7 +5,7 @@ use crate::{metrics::counter::Counter, Encoder, Metric};
 pub struct TextEncoder;
 
 impl Encoder for TextEncoder {
-    fn write_desc(&mut self, _desc: &crate::MetricDesc<Self>)
+    fn write_desc(&mut self, _desc: &crate::MetricDesc)
     where
         Self: Sized,
     {
@@ -16,9 +16,8 @@ impl Encoder for TextEncoder {
     }
 }
 
-impl Metric<TextEncoder> for Counter {
-    fn encode(&self, enc: TextEncoder) -> TextEncoder {
+impl Metric for Counter {
+    fn encode(&self, _enc: &mut dyn Encoder) {
         // TODO
-        enc
     }
 }
