@@ -160,11 +160,12 @@ mod tests {
         // The user will declare a metric in their file, again as a static
         static METRIC: MyMetric = MyMetric::new();
 
-        // The above line and the following can be done as a macro
+        // The above line and the following can probably be done as a macro
         static mut METRIC_ITEM: MetricDesc =
             MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
+
+        // A metric desc can only be registered once and will panic otherwise!
         REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
-        // REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
 
         // This'll be what most people will have in the same file as the metric static
         METRIC.inc();

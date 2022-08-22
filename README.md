@@ -33,14 +33,18 @@ static mut SOME_METRIC_DESC: MetricDesc =
     MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &SOME_METRIC);
 
 // Register the metric descriptor - once, and only once! The following is achieved
-// using std::sync::Once.
-static SOME_METRIC_DESC_REG: Once = Once::new();
-SOME_METRIC_DESC_REG.call_once(|| {
-    REGISTRY.register(unsafe { NonNull::new(&mut SOME_METRIC_DESC as *mut _).unwrap() });
-});
+// using std::sync::Once, but other methods including the lazy_static library can be
+// used. This initialization would also typically appear within the file where the
+// metric is used.
+static REGISTER_METRICS: Once = Once::new();
+    
+    // later...
+    REGISTER_METRICS.call_once(|| {
+        REGISTRY.register(unsafe { NonNull::new(&mut SOME_METRIC_DESC as *mut _).unwrap() });
+    });
 
-// Do what we do with metric counters!
-SOME_METRIC.inc();
+    // Do what we do with metric counters!
+    SOME_METRIC.inc();
 
 // Elsewhere, establish the encoder and output its bytes somewhere 
 // either periodically or on demand.
