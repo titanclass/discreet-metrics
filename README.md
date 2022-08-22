@@ -38,13 +38,13 @@ static mut SOME_METRIC_DESC: MetricDesc =
 // metric is used.
 static REGISTER_METRICS: Once = Once::new();
     
-    // later...
-    REGISTER_METRICS.call_once(|| {
-        REGISTRY.register(unsafe { NonNull::new(&mut SOME_METRIC_DESC as *mut _).unwrap() });
-    });
+// later...
+REGISTER_METRICS.call_once(|| {
+    REGISTRY.register(unsafe { NonNull::new(&mut SOME_METRIC_DESC as *mut _).unwrap() });
+});
 
-    // Do what we do with metric counters!
-    SOME_METRIC.inc();
+// Do what we do with metric counters!
+SOME_METRIC.inc();
 
 // Elsewhere, establish the encoder and output its bytes somewhere 
 // either periodically or on demand.
