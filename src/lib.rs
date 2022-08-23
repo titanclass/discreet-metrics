@@ -183,7 +183,7 @@ mod tests {
             MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
 
         // A metric desc can only be registered once and will panic otherwise!
-        REGISTRY.register(unsafe { NonNull::new(&mut METRIC_ITEM as *mut _).unwrap() });
+        REGISTRY.register(NonNull::new(unsafe { &mut METRIC_ITEM as *mut _ }).unwrap());
 
         // This'll be what most people will have in the same file as the metric static
         METRIC.inc();
