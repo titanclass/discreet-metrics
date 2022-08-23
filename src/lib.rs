@@ -42,7 +42,7 @@ pub struct MetricDesc<'a> {
     pub unit: Option<&'a str>,
     pub labels: &'a [&'a str],
 
-    metric: &'a dyn Metric,
+    metric: &'a (dyn Metric + Sync),
     next: AtomicPtr<MetricDesc<'a>>,
 }
 
@@ -52,7 +52,7 @@ impl<'a> MetricDesc<'a> {
         help: &'a str,
         unit: Option<&'a str>,
         labels: &'a [&'a str],
-        metric: &'a dyn Metric,
+        metric: &'a (dyn Metric + Sync),
     ) -> Self {
         Self {
             name,
