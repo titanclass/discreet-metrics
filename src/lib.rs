@@ -11,7 +11,9 @@ pub mod metrics;
 
 /// An encoder encodes metrics into bytes.
 pub trait Encoder {
+    /// Writes out the descriptor of a metric.
     fn write_desc(&mut self, desc: &MetricDesc);
+    /// Called by a metric to encode itself.
     fn write(&mut self, bytes: &[u8]);
 }
 
@@ -22,6 +24,7 @@ pub trait Encoder {
 /// They are distinct from logs or events, which focus on records or
 /// information about individual events.
 pub trait Metric {
+    /// Encode this metric into a form expected by a given Encoder.
     fn encode(&self, enc: &mut dyn Encoder);
 }
 
@@ -78,22 +81,37 @@ impl<'a> Registry<'a> {
         }
     }
 
+    /// Register a metric descriptor. Registration is synchronized
+    /// and so may therefore be called from multiple threads.
     pub fn register(&self, nonnull_desc_ptr: NonNull<MetricDesc<'a>>) {
         let desc = unsafe { nonnull_desc_ptr.as_ref() };
         let desc_ptr = nonnull_desc_ptr.as_ptr();
 
-        let head_desc_ptr = self.head.load(Ordering::Relaxed);
-        let prev_desc_ptr = desc.next.swap(head_desc_ptr, Ordering::Relaxed);
-        assert!(
-            head_desc_ptr != desc_ptr && prev_desc_ptr.is_null(),
-            "Metric is loaded more than once"
-        );
-        self.head.store(desc_ptr, Ordering::Relaxed);
+        loop {
+            let head_desc_ptr = self.head.load(Ordering::Relaxed);
+            let prev_desc_ptr = desc.next.swap(head_desc_ptr, Ordering::Relaxed);
+            assert!(
+                head_desc_ptr != desc_ptr && prev_desc_ptr.is_null(),
+                "Metric is loaded more than once"
+            );
+            if self
+                .head
+                .compare_exchange(
+                    head_desc_ptr,
+                    desc_ptr,
+                    Ordering::Relaxed,
+                    Ordering::Relaxed,
+                )
+                .is_ok()
+            {
+                break;
+            }
+        }
     }
 }
 
 impl<'a> Registry<'a> {
-    // Collect the registered metrics and encode them
+    /// Collect the registered metrics and encode them
     pub fn encode(&self, enc: &mut dyn Encoder) {
         let mut next = &self.head;
         while let Some(nonnull_desc_ptr) = NonNull::new(next.load(Ordering::Relaxed)) {
