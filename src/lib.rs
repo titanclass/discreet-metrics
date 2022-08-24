@@ -91,7 +91,7 @@ impl<'a> Registry<'a> {
             let prev_desc_ptr = desc.next.swap(head_desc_ptr, Ordering::Relaxed);
             assert!(
                 head_desc_ptr != desc_ptr && prev_desc_ptr.is_null(),
-                "Metric is loaded more than once"
+                "Metric is registered more than once"
             );
             if self
                 .head
