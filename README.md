@@ -40,7 +40,7 @@ static REGISTER_METRICS: Once = Once::new();
     
 // later...
 REGISTER_METRICS.call_once(|| {
-    REGISTRY.register(unsafe { &mut SOME_METRIC_DESC }.into());
+    REGISTRY.register(unsafe { &mut SOME_METRIC_DESC });
 });
 
 // Do what we do with metric counters!

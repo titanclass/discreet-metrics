@@ -83,9 +83,8 @@ impl<'a> Registry<'a> {
 
     /// Register a metric descriptor. Registration is synchronized
     /// and so may therefore be called from multiple threads.
-    pub fn register(&self, nonnull_desc_ptr: NonNull<MetricDesc<'a>>) {
-        let desc = unsafe { nonnull_desc_ptr.as_ref() };
-        let desc_ptr = nonnull_desc_ptr.as_ptr();
+    pub fn register(&self, desc: &'a mut MetricDesc<'a>) {
+        let desc_ptr = desc as *mut _;
 
         loop {
             let head_desc_ptr = self.head.load(Ordering::Relaxed);
@@ -183,7 +182,7 @@ mod tests {
             MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
 
         // A metric desc can only be registered once and will panic otherwise!
-        REGISTRY.register(unsafe { &mut METRIC_ITEM }.into());
+        REGISTRY.register(unsafe { &mut METRIC_ITEM });
 
         // This'll be what most people will have in the same file as the metric static
         METRIC.inc();
