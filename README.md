@@ -8,9 +8,9 @@ A high-performance/low-overhead metrics library aiming to conform with [OpenMetr
 * memory requirements for metrics are deterministic and fixed at compile time
 * able to run on no-std targets as well as std
 * sympathetic to hardware with limited support for atomics and floating types
-* avoids the use of an allocator in support bare metal targets
+* avoids the use of an allocator in support of bare metal targets
 
-As this library is intended to run on resource-constrained targets, you can expect good performance on targets in general.
+As this library is intended to run on resource-constrained targets, you can expect good performance on all targets.
 
 An example
 ---
