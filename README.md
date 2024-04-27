@@ -16,7 +16,7 @@ An example
 ---
 
 ```rust
-use core::ptr::NonNull;
+use core::ptr::{ addr_of_mut, NonNull };
 use discreet_metrics::{ encoders::text::TextEncoder, metrics::counter::Counter, MetricDesc, Registry };
 use std::sync::Once;
 
@@ -38,11 +38,14 @@ static mut SOME_METRIC_DESC: MetricDesc =
 // using std::sync::Once, but other methods including the lazy_static library can be
 // used. This initialization would also typically appear within the file where the
 // metric is used.
+//
+// The metric descriptor must also be declared to outlive the registry. This cannot be
+// enforced.
 static REGISTER_METRICS: Once = Once::new();
     
 // later...
 REGISTER_METRICS.call_once(|| {
-    REGISTRY.register(unsafe { &mut SOME_METRIC_DESC });
+    unsafe { REGISTRY.register(addr_of_mut!(SOME_METRIC_DESC)) };
 });
 
 // Do what we do with metric counters!

@@ -83,12 +83,13 @@ impl<'a> Registry<'a> {
 
     /// Register a metric descriptor. Registration is synchronized
     /// and so may therefore be called from multiple threads.
-    pub fn register(&self, desc: &'a mut MetricDesc<'a>) {
-        let desc_ptr = desc as *mut _;
-
+    ///
+    /// # Safety
+    /// The pointer to the descriptor must outlive the registry.
+    pub unsafe fn register(&self, desc_ptr: *mut MetricDesc<'a>) {
         loop {
             let head_desc_ptr = self.head.load(Ordering::Relaxed);
-            let prev_desc_ptr = desc.next.swap(head_desc_ptr, Ordering::Relaxed);
+            let prev_desc_ptr = (*desc_ptr).next.swap(head_desc_ptr, Ordering::Relaxed);
             assert!(
                 head_desc_ptr != desc_ptr && prev_desc_ptr.is_null(),
                 "Metric is registered more than once"
@@ -125,7 +126,7 @@ impl<'a> Registry<'a> {
 #[cfg(test)]
 mod tests {
 
-    use core::sync::atomic::AtomicUsize;
+    use core::{ptr::addr_of_mut, sync::atomic::AtomicUsize};
 
     use super::*;
 
@@ -150,7 +151,7 @@ mod tests {
         }
         impl Metric for MyMetric {
             fn encode(&self, enc: &mut dyn Encoder) {
-                enc.write(&self.count.load(Ordering::Relaxed).to_string().as_bytes());
+                enc.write(self.count.load(Ordering::Relaxed).to_string().as_bytes());
             }
         }
 
@@ -182,7 +183,8 @@ mod tests {
             MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
 
         // A metric desc can only be registered once and will panic otherwise!
-        REGISTRY.register(unsafe { &mut METRIC_ITEM });
+        // The metric desc must also outlive the registry.
+        unsafe { REGISTRY.register(addr_of_mut!(METRIC_ITEM)) };
 
         // This'll be what most people will have in the same file as the metric static
         METRIC.inc();
@@ -190,6 +192,6 @@ mod tests {
         // From elsewhere, we'd be establishing the encoder and outputting
         // its bytes somewhere either periodically or on demand.
         let mut encoder = MyEncoder;
-        let _encoder = REGISTRY.encode(&mut encoder);
+        REGISTRY.encode(&mut encoder);
     }
 }
