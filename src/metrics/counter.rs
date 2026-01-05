@@ -6,6 +6,7 @@
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 
+#[derive(Default)]
 pub struct Counter {
     total: AtomicUsize,
 }

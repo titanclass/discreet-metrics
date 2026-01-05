@@ -89,7 +89,7 @@ impl<'a> Registry<'a> {
     pub unsafe fn register(&self, desc_ptr: *mut MetricDesc<'a>) {
         loop {
             let head_desc_ptr = self.head.load(Ordering::Relaxed);
-            let prev_desc_ptr = (*desc_ptr).next.swap(head_desc_ptr, Ordering::Relaxed);
+            let prev_desc_ptr = unsafe { (*desc_ptr).next.swap(head_desc_ptr, Ordering::Relaxed) };
             assert!(
                 head_desc_ptr != desc_ptr && prev_desc_ptr.is_null(),
                 "Metric is registered more than once"
@@ -134,7 +134,6 @@ mod tests {
     fn registration() {
         // This will be provided by the library
 
-        #[derive(Default)]
         struct MyMetric {
             count: AtomicUsize,
         }

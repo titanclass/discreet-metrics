@@ -1,6 +1,6 @@
 //! The Prometheus text encoder adopted by OpenMetrics
 
-use crate::{metrics::counter::Counter, Encoder, Metric};
+use crate::{Encoder, Metric, metrics::counter::Counter};
 
 pub struct TextEncoder;
 
