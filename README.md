@@ -32,7 +32,7 @@ static REGISTRY: Registry = Registry::new();
 // Declare a metric in a file where it is used, again as a static
 static SOME_METRIC: Counter = Counter::new();
 static mut SOME_METRIC_DESC: MetricDesc = 
-    MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &SOME_METRIC);
+    MetricDesc::new("some-metric", "Some metric", None, &SOME_METRIC);
 
 // Register the metric descriptor - once, and only once! The following is achieved
 // using std::sync::Once, but other methods including the lazy_static library can be

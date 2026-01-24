@@ -40,7 +40,6 @@ pub struct MetricDesc<'a> {
     pub name: &'a str,
     pub help: &'a str,
     pub unit: Option<&'a str>,
-    pub labels: &'a [&'a str],
 
     metric: &'a (dyn Metric + Sync),
     next: AtomicPtr<MetricDesc<'a>>,
@@ -51,14 +50,12 @@ impl<'a> MetricDesc<'a> {
         name: &'a str,
         help: &'a str,
         unit: Option<&'a str>,
-        labels: &'a [&'a str],
         metric: &'a (dyn Metric + Sync),
     ) -> Self {
         Self {
             name,
             help,
             unit,
-            labels,
             metric,
             next: AtomicPtr::new(ptr::null_mut()),
         }
@@ -126,60 +123,23 @@ impl<'a> Registry<'a> {
 #[cfg(test)]
 mod tests {
 
-    use core::{ptr::addr_of_mut, sync::atomic::AtomicUsize};
+    use core::ptr::addr_of_mut;
+
+    use crate::{encoders::text::TextEncoder, metrics::counter::Counter};
 
     use super::*;
 
+    // A registry will be typically declared in a static
+    static REGISTRY: Registry = Registry::new();
+
+    // The user will declare a metric in their file, again as a static
+    static METRIC: Counter = Counter::new();
+
     #[test]
     fn registration() {
-        // This will be provided by the library
-
-        struct MyMetric {
-            count: AtomicUsize,
-        }
-        impl MyMetric {
-            const fn new() -> Self {
-                Self {
-                    count: AtomicUsize::new(0),
-                }
-            }
-
-            fn inc(&self) {
-                self.count.fetch_add(1, Ordering::Relaxed);
-            }
-        }
-        impl Metric for MyMetric {
-            fn encode(&self, enc: &mut dyn Encoder) {
-                enc.write(self.count.load(Ordering::Relaxed).to_string().as_bytes());
-            }
-        }
-
-        struct MyEncoder;
-        impl Encoder for MyEncoder {
-            fn write_desc(&mut self, desc: &MetricDesc)
-            where
-                Self: Sized,
-            {
-                assert_eq!(desc.name, "some-metric");
-                assert_eq!(desc.help, "Some metric");
-                assert!(desc.unit.is_none());
-                assert_eq!(desc.labels, ["some-label"]);
-            }
-
-            fn write(&mut self, bytes: &[u8]) {
-                assert_eq!(bytes, b"1");
-            }
-        }
-
-        // A registry will be typically declared in a static
-        static REGISTRY: Registry = Registry::new();
-
-        // The user will declare a metric in their file, again as a static
-        static METRIC: MyMetric = MyMetric::new();
-
         // The above line and the following can probably be done as a macro
         static mut METRIC_ITEM: MetricDesc =
-            MetricDesc::new("some-metric", "Some metric", None, &["some-label"], &METRIC);
+            MetricDesc::new("some-metric", "Some metric", None, &METRIC);
 
         // A metric desc can only be registered once and will panic otherwise!
         // The metric desc must also outlive the registry.
@@ -190,7 +150,7 @@ mod tests {
 
         // From elsewhere, we'd be establishing the encoder and outputting
         // its bytes somewhere either periodically or on demand.
-        let mut encoder = MyEncoder;
+        let mut encoder = TextEncoder;
         REGISTRY.encode(&mut encoder);
     }
 }
